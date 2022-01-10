@@ -276,9 +276,9 @@ I removed the "unneccesary" trigonometry, because I kept getting NaN numbers, an
 I was still getting NaNs in my points list, but only a couple out of the 20, so I just added a terrible hack to discard any NaNs and log a warning.
 
 Lo and behold, blobs!
-![a blob](spiky_blob1.svg "blob1")
-![a blob](spiky_blob2.svg "blob2")
-![a blob](spiky_blob3.svg "blob3")
+![a blob](../tests/svg/spiky_blob1.svg "blob1")
+![a blob](../tests/svg/spiky_blob2.svg "blob2")
+![a blob](../tests/svg/spiky_blob3.svg "blob3")
 
 They don't look quite the same though - I wondered if something was wrong (beyond the NaNs). Ah, I still have a TODO for "loop noise". THat's to do tomorrow then! [Edit from the future: Actually, I Implemented the noise_list wrong as well - nice work if you spotted this!]
 
@@ -328,14 +328,14 @@ I find the "into_iter()" and "collect()" calls a little irritating, but I'm sure
 I run the code again and they are less spiky now!
 
 Before:
-![a blob](spiky_blob1.svg "blob1")
-![a blob](spiky_blob2.svg "blob2")
-![a blob](spiky_blob3.svg "blob3")
+![a blob](../tests/svg/spiky_blob1.svg "blob1")
+![a blob](../tests/svg/spiky_blob2.svg "blob2")
+![a blob](../tests/svg/spiky_blob3.svg "blob3")
 
 After:
-![a blob](less_spiky.svg "blob1")
-![a blob](less_spiky.svg "blob2")
-![a blob](less_spiky.svg "blob3")
+![a blob](../tests/svg/less_spiky1.svg "blob1")
+![a blob](../tests/svg/less_spiky2.svg "blob2")
+![a blob](../tests/svg/less_spiky3.svg "blob3")
 
 They're still a bit spiky on the left - will look into that tomorrow.
 
@@ -372,11 +372,11 @@ The crux lies in understanding
 1) these are noise terms that will be applied on a pointwise basis
 2) The Perlin noise we developed yesterday is designed to be "smooth" in some sense. That is, unlike the first naive go at randomness, where the points were independent:
 
-![a blob](spiky_blob1.svg "blob1")
+![a blob](../tests/svg/spiky_blob1.svg "blob1")
 
 our efforts from yesterday are much smoother: 
 
-![a blob](less_spiky.svg "blob1")
+![a blob](../tests/svg/less_spiky1.svg "blob1")
 
 However, there is an exception on the left hand side of each of these pictures, where there's a much more jagged shape. This is because the Perlin noise we generated is designed to be smooth when used in a _linear_ fashion, but we are using it in a _circular_ fashion: when we apply the noises, we're applying it round the circumfrence of our circular-ish shape.
 
@@ -390,10 +390,11 @@ We can showcase this by "looping" the noise so that it starts again from the beg
 
 ![Some perlin noise](Perlin2.png "That's no longer smooth")
 
-Now we can see there will is a big red jagged cliff rather than a smooth curve, and that's the same effect we see on the left hand side of our blob here (the left hand side is both the start and the end of where we draw the blob)
+Now we can see there will is a big jagged cliff rather than a smooth curve, and that's the same effect we see on the left hand side of our blob here (the left hand side is both the start and the end of where we draw the blob)
 
-![a blob](less_spiky.svg "blob1")
+![a blob](../tests/svg/less_spiky1.svg "blob1")
 
 We're randomly moving the first and last points, and our goal is to have the random amount be similar, but because they are at opposite ends of the noise, there is no reason for the noise to be similar. 
 
-Our goal in loop_noise is to make adjustments to the noise so that it still has randomness, but that the start and end values are similar. We want to el
+Our goal in loop_noise is to make adjustments to the noise so that it still has randomness, but that the start and end values are similar. We want to eliminate the big red cliff from before. 
+
