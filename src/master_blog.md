@@ -18,7 +18,7 @@ What I like to do in this situation is see if I can break up the code into indep
 
 First I'm going to write the function signature. The JS code has some optional arguments, but I don't think Rust has this feature, so I'll have to make them all explicit. 
 
-```
+```rust
 fn blob(x: f32, y: f32, 
     len: int, 
     width: int,
@@ -37,7 +37,7 @@ The first thing I loook for is some variables that are only used over a small sc
 
 Here's the original code
 
-```
+```rust
      var reso = 20.0;
      var lalist = [];
      for (var i = 0; i < reso + 1; i++) {
@@ -51,7 +51,7 @@ Here's the original code
 ```
 
 And here's my fairly literal translation into Rust:
-```
+```rust
 fn la_list(resolution: int, len: int, f: &dyn Fn(f32) -> f32) -> Vec<(f32, f32)> {
     let mut out = vec![];
 
@@ -72,7 +72,7 @@ Now what's going on here?
 I'm lucky in that I did a degree in Maths, so I no longer recoil with horror when I see trigonometry. 
 
 When I look at definition of l, I notice that this is pythagoras' theorem for finding the length of the longest side of a right angled triangle. And looking up the docs of atan2, it's the angle between the (positive) x-axis and the point (xo, yo). If it's easier, here it is in diagram form:
-```
+```rust
 
           / (x0, y0)
          /
@@ -93,20 +93,20 @@ So at this point, I'm thinking la_list stands for "line and angle list". But I'm
 
 We're generating xo and yo before getting their line/angle. Let's look more at the code and work out what's happening. 
 
-```    
+```    rust
     for i in 0..resolution+1 {
         let p = (i/resolution) * 2;
 ```
 
 So we're dividing the range (0, 2) into <resolution> segments and generating an (xo, yo) for each of these. 
 
-```
+```rust
         let xo = len/2 - ((p-1).abs() * len);
 ```
 
 For xo, len is probably a length we can configure, and we can see that it exists in both terms of the above subtraction. We can do a small rearrangemnt to get: 
 
-```
+```rust
         let xo = len * (1/2 - (p-1).abs());
 ```
 
@@ -123,7 +123,7 @@ So now I think I have a good understanding of what's going on. We're going to be
 
 (Think about drawing a circle on a piece of paper, starting at the leftmost point - thinking only about the left-right motion you would move your hand from the left to the right and then back to the left.)
 
-```        
+```        rust
 let yo = (f(p) * wid) /2;
 ```
 
@@ -136,7 +136,7 @@ You can also see that we are multiplying the function call `f(p)` by the `wid` p
 
 The next part of blob concerns generating nslist. 
 
-```
+```rust
 //     var nslist = [];
 //     var n0 = Math.random() * 10;
 //     for (var i = 0; i < reso + 1; i++) {
@@ -147,7 +147,7 @@ The next part of blob concerns generating nslist.
 
 As we call Noise.noise, I am thinking that nslist stands for "noise_list", a list of random numbers that I guess we will use to make our blobs look more random and therefore more arty. 
 
-```
+```rust
 fn generate_noise_list(len: usize) -> Vec<f64> {
     let mut rng = rand::thread_rng();
     return (0..len).into_iter().map(|_| rng.gen()).collect();
@@ -156,7 +156,7 @@ fn generate_noise_list(len: usize) -> Vec<f64> {
 
 The final non-returning chunk of the function is putting together plist
 
-```        
+```        rust
 //     var plist = [];
 //     for (var i = 0; i < lalist.length; i++) {
 //       var ns = nslist[i] * noi + (1 - noi);
@@ -168,7 +168,7 @@ The final non-returning chunk of the function is putting together plist
 
 Our plist is filled with things called (nx, ny), so I'm guessing that this stands for "points list", and when we look ahead to the main way this function returns, it calls poly(), which takes a list of points as arguments. 
 
-```
+```rust
 //     if (ret == 0) {
 //       return poly(plist, { fil: col, str: col, wid: 0 });
 //     } else {
@@ -176,12 +176,12 @@ Our plist is filled with things called (nx, ny), so I'm guessing that this stand
 
 So what's happening in plist? We're looping over the lines and angles we created earlier. For each one, we're generating a pair of (x, y) co-ordinates, and our blob is a filled polygon that connects all these points.
 
-```
+```rust
 //       var ns = nslist[i] * noi + (1 - noi);
 ```
 This is a noise term, generated per point. It's also scaled by the function-level noi variant, which allows callers to control if all the points should be more or less noisy. 
 
-```
+```rust
 //       var nx = x + Math.cos(lalist[i][1] + ang) * lalist[i][0] * ns;
 ```
 
@@ -215,7 +215,7 @@ This seems strange to me - in lalist, we generated x0 and y0, and then used that
 
 [Insight from day 6: oh, we adjust the angle sometimes using ang. This is a way of rotating the initial shape, and will probably be needed at some point]
 
-```
+```rust
 //       var ny = y + Math.sin(lalist[i][1] + ang) * lalist[i][0] * ns;
 ```
 
@@ -225,7 +225,7 @@ DAY 5
 
 Got the code for the blobs working, but it's really irritating to have to specify the different numerical types of things. I guess when you're doing low-level stuff, this becomes an important consideration, but I don't care at all for this kind of thing. 
 
-```
+```rust
 fn blob(
     x: f64,
     y: f64,
@@ -267,7 +267,7 @@ Unfortunately I got a blank canvas the first time I ran this, so I set about deb
 
 I removed the "unneccesary" trigonometry, because I kept getting NaN numbers, and that seemed to be the fastest way to get the blobs working. [Actually, it turns out when I went over it that the trigonometry was needed to adjust the angle using the ang paramter. I've set myself up a branch to fail when I eventually hit that: ]
 
-```
+```rust
     if ang != 0.0 {
         todo!();
     }
@@ -286,14 +286,14 @@ DAY 6
 
 Today I was meant to investigate the loopNoise function. However I noticed an odd thing in the very first line: 
 
-```
+```rust
   function loopNoise(nslist) {
     var dif = nslist[nslist.length - 1] - nslist[0];
   ```
 
 The first line of loopNoise calculates a diff between the first and last elements of the noise list. This confused me at first because I thought that the list was entirely random, and I didn't expect the first and last to have any special significance. It turns out that I read the code wrong yesterday and in fact the elements of it are distributed differently from one another:
 
-```
+```rust
    var n0 = Math.random() * 10;
     for (var i = 0; i < reso + 1; i++) {
       nslist.push(Noise.noise(i * 0.05, n0));
@@ -309,7 +309,7 @@ Nice! Textures and Terrain - sounds good given what we're trying to make. Anothe
 
 It looks like I can just transliterate the JS code directly to get this
 
-```
+```rust
 fn generate_noise_list(len: usize) -> Vec<f64> {
     let perlin = Perlin::new();
 
@@ -344,7 +344,7 @@ DAY 7
 
 Ok, after a day of diversion, we're back to looking at loopNoise! What's going on here then?
 
-```
+```rust
   function mapval(value, istart, istop, ostart, ostop) {
     return (
       ostart + (ostop - ostart) * (((value - istart) * 1.0) / (istop - istart))
@@ -400,9 +400,9 @@ Our goal in loop_noise is to make adjustments to the noise so that it still has 
 
 How will we do that?
 
-The JS code starts by creating a difference term, here's the code transilterated into Rust:
+The JS code starts by creating a difference termi (aka `delta_list`), here's the code transilterated into Rust:
 
-```
+```rust
 fn loop_noise(noise_list: Vec<f64>) -> Vec<f64> {
     // this is the diff once we loop our shape back around - we would like it to be small to 
     // get smooth shapes
@@ -415,3 +415,36 @@ fn loop_noise(noise_list: Vec<f64>) -> Vec<f64> {
         |i| ( dif * (length_minus_one - i as f64)) / length_minus_one
      ) .collect();
 ```
+
+This difference term takes the height of our red cliff and makes a linear interpolation out of it. It's like drawing a straight line from the start of the line to the end of the line: 
+
+![Some perlin noise with another line](Perlin3.png "That's no longer smooth")
+
+What we're then going to do is consider the difference between the straight line and the curve, and have this as our noise - it's still random as we go along it, but at the start and end that difference is zero, so it will smoothly join up when we loop it.
+
+(Note: Actually, `delta_list` is actually a mirror image of the line drawn, and we're going to add it rather than use the difference, but the principle is the same.)
+
+```rust
+     // This is essentially turning the noise into a "flatish" walk, with diff reduced to zero. 
+     let new_noise_list: Vec<f64> = noise_list.into_iter().zip(delta_list)
+     .map(|(a, b)| a+b).collect();
+
+```
+
+The rest of this function seems to just be finding the min and max of the resulting noise, and using that to do a normalisation.
+
+```rust
+     let upper_bound = new_noise_list.iter()
+.fold(-100.0 as f64, |a, &b| a.max(b));
+     let lower_bound = new_noise_list.iter().fold(100.0 as f64, |a, &b| a.min(b));
+
+     let noise_range = upper_bound - lower_bound;
+
+     let out = new_noise_list.into_iter()
+     .map(|noise| (noise - lower_bound)/noise_range).collect();
+
+     return out;
+}
+```
+
+You might note that I haven't bothered with the mapval function. When trying to work out what it did, I found it simplified down to the penultimate line of the function above, so I didn't bother implementing it until it will be needed. 
