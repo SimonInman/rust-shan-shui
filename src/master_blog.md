@@ -398,3 +398,5 @@ We're randomly moving the first and last points, and our goal is to have the ran
 
 Our goal in loop_noise is to make adjustments to the noise so that it still has randomness, but that the start and end values are similar. We want to eliminate the big red cliff from before. 
 
+How will we do that?
+
