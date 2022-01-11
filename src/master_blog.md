@@ -400,3 +400,18 @@ Our goal in loop_noise is to make adjustments to the noise so that it still has 
 
 How will we do that?
 
+The JS code starts by creating a difference term, here's the code transilterated into Rust:
+
+```
+fn loop_noise(noise_list: Vec<f64>) -> Vec<f64> {
+    // this is the diff once we loop our shape back around - we would like it to be small to 
+    // get smooth shapes
+    let dif = noise_list.last().unwrap() - noise_list.first().unwrap();
+
+    let length_minus_one: f64 = (noise_list.len() - 1) as f64;
+
+    // this just linear interpolates from dif -> 0 as you go through.
+    let delta_list: Vec<f64> = (0..noise_list.len()).into_iter().map(
+        |i| ( dif * (length_minus_one - i as f64)) / length_minus_one
+     ) .collect();
+```
