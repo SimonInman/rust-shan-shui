@@ -58,7 +58,7 @@ use rand::Rng;
 //               ? Math.pow(Math.sin(x * Math.PI), 0.5)
 //               : -Math.pow(Math.sin((x + 1) * Math.PI), 0.5);
 //           };
-fn default_f(x: f64) -> f64 {
+pub fn default_f(x: f64) -> f64 {
     let pi = std::f64::consts::PI;
     if x <= 1.0 {
         return (x * pi).sin().sqrt();
@@ -73,11 +73,11 @@ fn default_f(x: f64) -> f64 {
 //     var col = args.col != undefined ? args.col : "rgba(200,200,200,0.9)";
 //     var noi = args.noi != undefined ? args.noi : 0.5;
 //     var ret = args.ret != undefined ? args.ret : 0;
-pub(crate) fn default_blob(x: f64, y: f64) -> Shape {
+pub fn default_blob(x: f64, y: f64) -> Shape {
     return blob(x, y, 40.0, 10.0, 0.0, 0.5, true, &default_f);
 }
 
-fn blob(
+pub fn blob(
     x: f64,
     y: f64,
     length: f64,
@@ -98,15 +98,12 @@ fn blob(
 
     // let noise_list = naive_noise_list(lengths_and_angles.len());
     let noise_list = generate_noise_list(lengths_and_angles.len());
-    // let looped_noise: Vec<f64> = loop_noise(noise_list);
+    let looped_noise: Vec<f64> = loop_noise(noise_list);
 
-    // todo LOOPNOISE
-    //
-    //
     let mut points_list = vec![];
     for i in 0..(lengths_and_angles.len()) {
-        let this_noise = noise_list[i] * noise + (1.0 - noise);
-        // let this_noise = looped_noise[i] * noise + (1.0 - noise);
+        // let this_noise = noise_list[i] * noise + (1.0 - noise);
+        let this_noise = looped_noise[i] * noise + (1.0 - noise);
         // let this_angle = lengths_and_angles[i].1 + ang;
         // let nx = x + this_angle.cos() * lengths_and_angles[i].0 * this_noise;
         // let ny = y + this_angle.cos() * lengths_and_angles[i].0 * this_noise;
@@ -123,7 +120,6 @@ fn blob(
     }
 
     if ret {
-        println!("returning a line_from with {} points", points_list.len());
         return super::line_from(points_list);
     } else {
         todo!()
@@ -152,8 +148,6 @@ fn loop_noise(noise_list: Vec<f64>) -> Vec<f64> {
     // this is the diff once we loop our shape back around - we would like it to be small to 
     // get smooth shapes
     let dif = noise_list.last().unwrap() - noise_list.first().unwrap();
-    // let upper_bound = 100.0;
-    // let lower_bound = -100.0;
 
 //       nslist[i] += (dif * (nslist.length - 1 - i)) / (nslist.length - 1);
     let length_minus_one: f64 = (noise_list.len() - 1) as f64;

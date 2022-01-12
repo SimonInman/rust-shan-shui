@@ -448,3 +448,188 @@ The rest of this function seems to just be finding the min and max of the result
 ```
 
 You might note that I haven't bothered with the mapval function. When trying to work out what it did, I found it simplified down to the penultimate line of the function above, so I didn't bother implementing it until it will be needed. 
+
+Day 9
+
+I think I now have a blob() and poly() function, so I believe I can start drawing some trees. I'll start by looking at tree1, which was also the topic of the first post in Zverok's amazing post about this library https://zverok.github.io/advent2021/day02.html , which inspired me to do this - so I'm pretty excited!
+
+[todo link to function]
+
+I'll start by defining the function signature, and a default function that uses the default arguments from the JS:
+
+```
+this.tree01 = function(x, y, args) {
+  var args = args != undefined ? args : {};
+  var hei = args.hei != undefined ? args.hei : 50;
+  var wid = args.wid != undefined ? args.wid : 3;
+  var col = args.col != undefined ? args.col : "rgba(100,100,100,0.5)";
+  var noi = args.noi != undefined ? args.noi : 0.5;
+
+```
+
+This gives us: 
+
+```
+fn default_tree_1(x: f64, y: f64) -> Vec<Drawing> {
+    return tree_1(x, y, 
+        50.0,
+        3.0,
+        0.5,
+    );
+}
+
+fn tree_1(x: f64, y: f64, height: f64, wid: f64, noise: f64) -> Vec<Drawing> {
+    todo!();
+}
+```
+
+Our eventual canvas will be a Vector of drawings, each of which can be styled individually.
+
+(I haven't bothered with the colour argument at the moment - that seems to make things more complex and I want to get some things on screen asap!)
+
+Here's the rest of the code we have to implement: 
+
+```javascript 
+
+     reso = 10;
+     var nslist = [];
+     for (var i = 0; i < reso; i++) {
+       nslist.push([Noise.noise(i * 0.5), Noise.noise(i * 0.5, 0.5)]);
+     }
+
+     var leafcol;
+     if (col.includes("rgba(")) {
+       leafcol = col
+         .replace("rgba(", "")
+         .replace(")", "")
+         .split(",");
+     } else {
+       leafcol = ["100", "100", "100", "0.5"];
+     }
+     var canv = "";
+     var line1 = [];
+     var line2 = [];
+     for (var i = 0; i < reso; i++) {
+       var nx = x;
+       var ny = y - (i * hei) / reso;
+       if (i >= reso / 4) {
+         for (var j = 0; j < (reso - i) / 5; j++) {
+           canv += blob(
+             nx + (Math.random() - 0.5) * wid * 1.2 * (reso - i),
+             ny + (Math.random() - 0.5) * wid,
+             {
+               len: Math.random() * 20 * (reso - i) * 0.2 + 10,
+               wid: Math.random() * 6 + 3,
+               ang: ((Math.random() - 0.5) * Math.PI) / 6,
+               col:
+                 "rgba(" +
+                 leafcol[0] +
+                 "," +
+                 leafcol[1] +
+                 "," +
+                 leafcol[2] +
+                 "," +
+                 (Math.random() * 0.2 + parseFloat(leafcol[3])).toFixed(1) +
+                 ")",
+             },
+           );
+         }
+       }
+       line1.push([nx + (nslist[i][0] - 0.5) * wid - wid / 2, ny]);
+       line2.push([nx + (nslist[i][1] - 0.5) * wid + wid / 2, ny]);
+     }
+     canv +=
+       poly(line1, { fil: "none", str: col, wid: 1.5 }) +
+       poly(line2, { fil: "none", str: col, wid: 1.5 });
+     return canv;
+  };, 
+```
+This looks quite complicated, but after a bit of thikking, my first observations are:
+1) Quite a lot of lines are spent manipulating strings describing colours
+2) There are a couple of nested loops, which can probably be extracted 
+3) When I look at what's actually added to the canvas, it's two lines and some number of blobs.
+
+So this probably isn't as hard as it first seems. 
+
+I transliterated the above, and got...
+
+![A bad tree](../pictures/bad_tree_1.jpg "bad tree")
+
+Hmm, that's not right. The shapes looked filled even though I didn't set a fill parameter. I check the raw SVG file and the shapes do indeed say they have no fill.
+
+After a bit of fiddling, the problem seems to be that I have the line stroke width set to 5, but the canvas size only set to 50x50 - so each stroke takes up nearly 10% of the height/width of the canvas.  
+
+Decreasing the stroke width and increasing the canvas size gives me the following:
+
+![A bad tree](../pictures/bad_tree_2.jpg "bad tree")
+
+Hmm, this isn't right either. The leaves aren't filled, which is fine, I can change that easily in a minute. But even if they were filled, there still wouldn't be enough leaves. 
+
+Rereading the source, I realise I've left out a loop - I'm only adding one leaf for each hight we go up the tree, but there's actually a loop building multiple leaves for each height. 
+
+I try to add the loop in as follows:
+
+```rust
+fn leaves_for_height(x: f64, y: f64, width: f64, resolution: usize, leaf_index: usize, colour: RGB) -> Vec<Drawing> {
+    let mut leaves = vec![];
+    println!("adding leaves for height {}", y);
+    for _ in  0..(resolution - leaf_index) / 5 {
+        println!("adding 1 leaves for height {}", y);
+        leaves.push(leaf(x, y, width, resolution, leaf_index, colour));
+    }
+    return leaves;
+}
+[snip]
+(0..resolution).for_each(|i| {
+    let nx = x;
+    let ny = y - (i as f64 * height/resolution as f64);
+    // todo check integer division
+    if i >= resolution/4 {
+        let mut this_level_leaves = leaves_for_height(nx, ny, width, resolution, i, rgb);
+        drawings.append(&mut this_level_leaves);
+    }
+[snip]
+
+```
+
+and...
+
+![A bad tree](../pictures/bad_tree_3.svg "bad tree")
+
+Hmm, even worse than before! How can this be?
+
+```javascript
+     for (var i = 0; i < reso; i++) {
+       var nx = x;
+       var ny = y - (i * hei) / reso;
+       if (i >= reso / 4) {
+         for (var j = 0; j < (reso - i) / 5; j++) {
+           <Add a leaf to the drawing>
+```
+
+Reso in the javascript code is set to 10. So we enter the `i >= reso/4` loop for i from 3 to 10. 
+
+When we get to the second loop, `reso - i` willl be 7 in the first loop, and go down to 0 as i increases. 
+
+I realise now that I'm confused, because in Rust 7 / 5 will come out as 1 (because I think Rust does the quotient operator, returning the integer number of times that the denominator fits into the numerator). This means that the loop will run at most once for each value of i, and won't run at all once i reaches 6 (because then `reso - i` will be 4, and 5 fits into 4 zero times.)
+
+That makes sense to me based on the last picture above - as we go up the tree, we're seeing one leaf per level, then zero after a certain point.
+
+But I'm confused how the original could have worked - we have at least one leaf on each level there. The answer lies in looking up the Javascript docs for the division operator. In JS, it turns out that the division operator does exact division, so (e.g.) `7/5` becomes 1.4. This means that we get an extra go through the j loop most of the time, because the check is now `j < 1.4` rather than `j < 1`, which now evaluates as true when j is 1.
+
+So I'm just going to add a 1 to that condition in my Rust code and that should fix things. (For the pedants: This isn't quite right, because when `reso - i` is 5, I will now have two leaves on that leve, and the original code will have one. But I don't think that will matter!)
+
+![An ok tree](../pictures/bad_tree_4.svg "ok tree")
+
+That's more like it! I now think I'm quite close, and just updating the colour and filling the leaves will be sufficient to get something reasonably like a tree. 
+
+![An ok tree](../pictures/bad_tree_5.svg "ok tree")
+
+Not totally bad! I think there's a few things to add to make these a bit nicer: 
+
+1) Opacity for the leaves should be around 50% and stochastic.
+2) Height and width parameters need fiddling with. I don't think the defaults used in the function give that great a result, but I'll need to read some more of the original code to work out what inputs would give the best result.
+
+Still, quite pleased to have my first actual drawing!
+
+![A forest](../pictures/forest.svg "little copse")
