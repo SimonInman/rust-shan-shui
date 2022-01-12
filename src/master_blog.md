@@ -551,7 +551,109 @@ This looks quite complicated, but after a bit of thikking, my first observations
 
 So this probably isn't as hard as it first seems. 
 
+I start by writing a function to generate the noise terms:
+
+```rust
+fn generate_2d_noise_list(len: usize) -> Vec<(f64, f64)> {
+    let perlin = Perlin::new();
+
+    let noise_for_index = |i| (
+        perlin.get([(i as f64) * 0.05, 0.0]), 
+        perlin.get([(i as f64) * 0.05, 0.5]), 
+    );
+    let out = (0..len).into_iter().map(noise_for_index).collect();
+
+    return out;
+}
+```
+
+Now let's look at the main loop:
+
+```javascript
+     for (var i = 0; i < reso; i++) {
+       var nx = x;
+       var ny = y - (i * hei) / reso;
+       if (i >= reso / 4) {
+         for (var j = 0; j < (reso - i) / 5; j++) {
+           canv += blob(
+             [snip]
+           );
+         }
+       }
+       line1.push([nx + (nslist[i][0] - 0.5) * wid - wid / 2, ny]);
+       line2.push([nx + (nslist[i][1] - 0.5) * wid + wid / 2, ny]);
+     }
+```
+
+The form of the code is as follows:
+We run `i` from 0 to reso. 
+As `i` increases, `ny` decreases linearly, starting at `y` and finishing at `y - height`. Playing with the SVG renderer has informed me that y = 0 is the top of the screen, so as we increase i and decrease `ny`, we are moving from the bottom of the tree to the top. 
+
+For each vertical step (that is, for each i), we do two things:
+1) Maybe going into a loop that adds some blobs (if (i >= reso / 4) is statisfied)
+2) Add a point to both line1 and line2.
+
+The points added to line1 can be rearranged into
+`nx +  wid / 2` (the deterministic part) plus `(nslist[i][0] - 0.5) * wid ` (the random noise part).
+
+The deterministic part just means we're drawing at the specified nx, plus half the width (so this is the right hand line of the tree). The random part is intended to make them a bit more natural looking: Instead of two straight lines like a telegraph pole, you have some wiggly bits that add character.
+
+[Unanswered question: If you go to the end of this day, you can see a picture where I've drawn quite a few little trees. However, all of these trees seem to start wide at the bottom and become narrow at the top. It's not clear to me why this is. I assume it's some feature of the Perlin noise, but I can't immediately see what it would be.]
+
 I transliterated the above, and got...
+
+```rust
+
+fn tree_1(x: f64, y: f64, height: f64, width: f64, _noise: f64) -> Vec<Drawing> {
+
+let rgb = RGB{r:100,g:100,b:100}.clone();
+let resolution = 10;
+let noise_list = generate_2d_noise_list(resolution);
+
+let mut drawings = vec![]; 
+let mut line1 = vec![];
+let mut line2 = vec![];
+
+(0..resolution).for_each(|i| {
+    let nx = x;
+    let ny = y - (i as f64 * height/resolution as f64);
+    drawings.push(&mut this_level_leaves);
+    // todo check integer division
+    drawings.push(leaf(x, y, width, resolution, leaf_index, colour));
+    line1.push((nx + (noise_list[i].0 - 0.5) * width - width / 2.0, ny));
+    line2.push((nx + (noise_list[i].1 - 0.5) * width + width / 2.0, ny));
+
+});
+
+// todo ordering
+drawings.push(Drawing::new().with_shape(super::line_from(line1)).with_style(Style::stroked(1, rgb)));
+drawings.push(Drawing::new().with_shape(super::line_from(line2)).with_style(Style::stroked(1, rgb)));
+
+return drawings
+
+}
+
+fn leaf(x: f64, y: f64, width: f64, resolution: usize, leaf_index: usize, colour: RGB) -> Drawing {
+    let mut rng = rand::thread_rng();
+    let pi = std::f64::consts::PI;
+
+    let distance_from_top = resolution as f64 - leaf_index as f64;
+
+    let leaf_x: f64 = x + (rng.gen::<f64>() - 0.5) * width * 1.2 * distance_from_top ;
+    let leaf_y = y + (rng.gen::<f64>() - 0.5) * width;
+    let length = rng.gen::<f64>() * 20.0 * distance_from_top * 0.2 + 10.0;
+    let width = rng.gen::<f64>() * 6.0 + 3.0;
+    // todo implement angle
+    let angle = ((rng.gen::<f64>() - 0.5) * pi) / 6.0;
+    let ret = true;
+    let noise = 0.5;
+
+    let leaf_blob = blob::blob(leaf_x, leaf_y, length, width, 0.0, noise, ret, &default_f);
+
+
+    return Drawing::new().with_shape(leaf_blob).with_style(Style::filled(colour));
+}
+```
 
 ![A bad tree](../pictures/bad_tree_1.jpg "bad tree")
 
@@ -570,15 +672,6 @@ Rereading the source, I realise I've left out a loop - I'm only adding one leaf 
 I try to add the loop in as follows:
 
 ```rust
-fn leaves_for_height(x: f64, y: f64, width: f64, resolution: usize, leaf_index: usize, colour: RGB) -> Vec<Drawing> {
-    let mut leaves = vec![];
-    println!("adding leaves for height {}", y);
-    for _ in  0..(resolution - leaf_index) / 5 {
-        println!("adding 1 leaves for height {}", y);
-        leaves.push(leaf(x, y, width, resolution, leaf_index, colour));
-    }
-    return leaves;
-}
 [snip]
 (0..resolution).for_each(|i| {
     let nx = x;
@@ -589,6 +682,16 @@ fn leaves_for_height(x: f64, y: f64, width: f64, resolution: usize, leaf_index: 
         drawings.append(&mut this_level_leaves);
     }
 [snip]
+
+fn leaves_for_height(x: f64, y: f64, width: f64, resolution: usize, leaf_index: usize, colour: RGB) -> Vec<Drawing> {
+    let mut leaves = vec![];
+    println!("adding leaves for height {}", y);
+    for _ in  0..(resolution - leaf_index) / 5 {
+        println!("adding 1 leaves for height {}", y);
+        leaves.push(leaf(x, y, width, resolution, leaf_index, colour));
+    }
+    return leaves;
+}
 
 ```
 
@@ -629,6 +732,7 @@ Not totally bad! I think there's a few things to add to make these a bit nicer:
 
 1) Opacity for the leaves should be around 50% and stochastic.
 2) Height and width parameters need fiddling with. I don't think the defaults used in the function give that great a result, but I'll need to read some more of the original code to work out what inputs would give the best result.
+3) The original code has some randomness in the angles of the leaves, which makes it seem more natural. I need to implement this feature in my blob function before I can do this.
 
 Still, quite pleased to have my first actual drawing!
 
