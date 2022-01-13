@@ -1,5 +1,8 @@
+use core::panic;
+
 use draw::*;
 use rand::Rng;
+
 
 mod blob;
 mod trees;
@@ -8,28 +11,37 @@ fn main() {
     println!("Hello, world!");
 
 // create a canvas to draw on
-let mut canvas = Canvas::new(500, 500);
+let mut canvas = Canvas::new(500, 300);
 
 // let line = line_from(vec![(50.0, 10.0), (60.0, 20.0), (40.0, 70.0)]);
 
-let blob = blob::default_blob(50.0, 50.0);
+// let blob = blob::blob(50.0, 50.0, 40.0, 10.0, 
+//        0.0,  
+//         0.0, 
+//         true, 
+//         &blob::default_f);
 
 // let line = LineBuilder::new(50.0, 10.0)
 // .line_to(50.0, 75.0).build();
 
-// let rgb = RGB{r:222,g:128,b:255}.clone();
+let rgb = RGB{r:222,g:128,b:255}.clone();
+let style = 
+        Style {
+            fill: Some(Fill::new(rgb)),
+            stroke: Some(Stroke::new(5, rgb)),
+        };
 // // create a new drawing
 // let our_drawing = Drawing::new()
 //     // give it a shape
 //     .with_shape(blob)
 //     // give it a cool style
-//     .with_style(Style::filled(rgb));
-
-let tree = trees::default_tree_1(25.0, 150.0);
-let forest1 = forest();
-
+//     .with_style(style);
 // add it to the canvas
 // canvas.display_list.add(our_drawing);
+
+// let tree = trees::default_tree_1(25.0, 150.0);
+let forest1 = forest();
+
 
 for tree_part in forest1 {
     canvas.display_list.add(tree_part);
@@ -38,7 +50,7 @@ for tree_part in forest1 {
 // save the canvas as an svg
 render::save(
     &canvas,
-    "pictures/forest.svg",
+    "pictures/forest_with_tree_2_try_3.svg",
     SvgRenderer::new(),
 )
 .expect("Failed to save");
@@ -48,6 +60,7 @@ fn line_from(line_points: Vec<(f64, f64)>) -> Shape {
     let maybe_start = line_points.first();
     if maybe_start == None {
         //error;
+        panic!();
     }
 
     let start = maybe_start.unwrap();
@@ -76,7 +89,7 @@ fn forest() -> Vec<Drawing>{
     let mut trees = vec![];
     let mut rng = rand::thread_rng();
     for i in 0..10 {
-    let mut tree = trees::default_tree_1(
+    let mut tree = trees::default_tree_2(
         5.0 + 20.0*i as f64 +  5.0 * rng.gen::<f64>(), 
     150.0 + 10.0 * rng.gen::<f64>());
         trees.append(&mut tree);

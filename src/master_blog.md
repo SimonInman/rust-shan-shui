@@ -737,3 +737,213 @@ Not totally bad! I think there's a few things to add to make these a bit nicer:
 Still, quite pleased to have my first actual drawing!
 
 ![A forest](../pictures/forest.svg "little copse")
+
+DAY 10
+
+I decide to look at another tree before polishing them up a bit, i think it will be more fun. 
+
+Here's a link to tree02 https://github.com/zverok/grok-shan-shui/blob/main/original.html#L803
+
+```javascript
+    this.tree02 = function(x, y, args) {
+      var args = args != undefined ? args : {};
+      var hei = args.hei != undefined ? args.hei : 16;
+      var wid = args.wid != undefined ? args.wid : 8;
+      var clu = args.clu != undefined ? args.clu : 5;
+      var col = args.col != undefined ? args.col : "rgba(100,100,100,0.5)";
+      var noi = args.noi != undefined ? args.noi : 0.5;
+
+      var leafcol;
+      if (col.includes("rgba(")) {
+        leafcol = col
+          .replace("rgba(", "")
+          .replace(")", "")
+          .split(",");
+      } else {
+        leafcol = ["100", "100", "100", "0.5"];
+      }
+
+      var canv = "";
+      for (var i = 0; i < clu; i++) {
+        canv += blob(
+          x + randGaussian() * clu * 4,
+          y + randGaussian() * clu * 4,
+          {
+            ang: Math.PI / 2,
+            col: "rgba(100,100,100,0.8)",
+            fun: function(x) {
+              return x <= 1
+                ? Math.pow(Math.sin(x * Math.PI) * x, 0.5)
+                : -Math.pow(Math.sin((x - 2) * Math.PI * (x - 2)), 0.5);
+            },
+            wid: Math.random() * wid * 0.75 + wid * 0.5,
+            len: Math.random() * hei * 0.75 + hei * 0.5,
+            col: col,
+          },
+        );
+      }
+      return canv;
+    };
+```
+
+This features a paramtere called `clu`, which I'm not sure what it means. It seems to be what we are looping round, so perhaps similar to reso in the previous code?
+
+What are the notable differences from tree 1? Well, in this case we are solely making the tree out of blobs - no trunk lines. Another difference is that we are supplying a custom blob function. If you recall, this is the "base" of the blob that defines the general shape of the blob, which we will then randomly peturb.  A third difference is that the angle provided is non-zero, which means I need to go back and implement that function. 
+
+- Implementing angle in blob
+
+This takes a while. I look up how to use the Rust debugger from within Visual Studio, which seems like a very nice tool. I find one silly error where I've copy/pasted code and meant to change a Cos function to a Sin, but failed:
+
+```rust
+        let nx = x + this_angle.cos() * lengths_and_angles[i].0 * this_noise;
+        let ny = y + this_angle.cos() * lengths_and_angles[i].0 * this_noise;
+```
+But finally I get it to work, and draw the little forest again. This time the leaves are a bit more spread around:
+
+![A forest](../pictures/forest_with_angled_leaves.svg "little copse")
+
+
+- Different blob function
+
+I implement the blob function we will use as follows:
+
+```rust
+pub fn tree_2_blob_f(x: f64) -> f64 {
+    let pi = std::f64::consts::PI;
+
+    let a_sin_a = |a: f64| -> f64 {a  *  (a * pi).sin() };
+    if x <= 1.0 {
+        return (a_sin_a(x)).sqrt();
+    } else {
+        return -1.0 * (a_sin_a(x - 2.0)).sqrt();
+    }
+}
+```
+
+We can see the difference between the this blob and the previous one by calling the blob function with no noise:
+
+Our original blob looked like:
+![A blob](../pictures/tree_1_blob.svg "blobblobblob")
+
+Our new one looks like this: 
+![A blob](../pictures/tree_2_blob.svg "blobblobblob")
+
+So it's not all that different, but it's a bit more streamlined and less round.
+
+- Gaussian Randomness
+
+Unlike tree 1, the loop doesn't use the `i` variable to build a tree in a particular direction (if you recall, as `i` increased in the tree1 loop, the vertical height we were rendering increased.). 
+
+The code for tree2 generates a number of blobs around the same point, with some randomness. `i` is not used, so the randomness is the only thing that stops us rendering all the blobs on top of each other.
+
+```javascript
+          x + randGaussian() * clu * 4,
+          y + randGaussian() * clu * 4,
+```
+
+I am guessing that the intention is to just get a random number from the Guassian (a.k.a. Normal) distribution. https://en.wikipedia.org/wiki/Normal_distribution If you've ever seen a "bell curve", this is the same thing.
+
+I'd thought this might be a call to an existing JS library, however the code used was non-trivial:
+
+```javascript
+  function wtrand(func) {
+    var x = Math.random();
+    var y = Math.random();
+    if (y < func(x)) {
+      return x;
+    } else {
+      return wtrand(func);
+    }
+  }
+
+  function randGaussian() {
+    return (
+      wtrand(function(x) {
+        return Math.pow(Math.E, -24 * Math.pow(x - 0.5, 2));
+      }) *
+        2 -
+      1
+    );
+  }
+  ```
+
+This `wtrand` looks very strange to me. Essentially you hand it a function, and then it generates two numbers between 0 and 1. If y is small enough compared to f(x), we return x. If not, we call the function exactly the same again. 
+
+This to me makes me think about a threshold effect, where we want to generate a random number, but we'd like to reject some of the samples? 
+
+The function being bassed into wtrand is quite similar to the normal distribution formula, centered around 0.5 (although the variance is a bit different).
+When x is 0.5, we have f(x) = e^0, which is 1, so our random y will always be less than this (and therefore we'll always return if x is 0.5. 
+
+As x increases or decreases from 0.5, f(x) decreases, so the chance of y < f(x), becomes lower. That means we're more likely to throw away values of x that are further away from 0.5.
+
+So it's basically like a normal distribution, but when we get a sample, we might throw it away if it is too far away.
+
+I'm not really sure what the intent of this is - maybe it was a little too spread out and the author wanted to have them come in tighter (but still have them far away sometimes)?
+
+```rust
+fn random_gaussian() -> f64 {
+    let mut rng = rand::thread_rng();
+
+    loop {
+        let x:f64 = rng.gen::<f64>();
+        let y:f64 = rng.gen();
+        let weird_number: f64 =  -24.0 * (x - 0.5).powi(2);
+        let guassian: f64 = weird_number.exp();
+        if y < guassian {
+            return x;
+        }
+    }
+}
+```
+
+All that remains is to call our functions in a loop:
+```rust
+fn tree_2(x: f64, y: f64, height: f64, width: f64, clu: usize, _noise: f64, colour: RGB) -> Vec<Drawing> {
+    let mut rng = rand::thread_rng();
+    let pi = std::f64::consts::PI;
+
+    let mut out = vec![];
+    let stochastic_width =  width * (rng.gen::<f64>() * 0.75 +  0.5);
+    let stochastic_length=  height * (rng.gen::<f64>() * 0.75 + 0.5);
+
+    for i in 0..clu {
+        let leaf_blob = blob(
+            x + random_gaussian(), 
+            y + random_gaussian(), 
+            stochastic_length, 
+            stochastic_width, 
+            pi / 2.0, 
+            0.0, 
+            true, 
+            &tree_2_blob_f);
+            out.push(
+                Drawing::new().with_shape(leaf_blob).with_style(Style::filled(colour))
+            );
+    }
+    return out;
+}
+```
+
+I generate a forest and...
+![Hmm](../pictures/forest_with_tree_2.svg "hmm")
+
+Hmm, that doesn't look very good. I go back to this excellent blog (https://zverok.github.io/advent2021/day05.html) to help me identify what these should look like. It seems like there's definitely something wrong - my shapes look just like one blob, wheras those coloured purple in that blog appear to be overlapping ones. Aha - probably not enough randomness in the start position of the trees? That would mean they were all right on top of each other. Yes! I was scared random_gaussian was going to be wrong and impossible to debug, but actually I've just failed to use it properly. In the code above, the cooridantes have
+
+```
+            x + random_gaussian(), 
+```
+but should have
+```
+            x + random_gaussian() * clu * 4, 
+```
+
+That's an increase of 40 times in the placement of the blobs, so I expect that to make a large difference.
+
+
+![Hmm](../pictures/forest_with_tree_2_try_2.svg "hmm")
+
+Hmm that's not right either. Now the points are too far apart, I think.
+
+Well, turns out that I just typed the above "* clu * 4" line while I was writing it, and wrote 10 instead. Doh! when I correct it, I get something that looks pretty ok!
+
+![Hmm](../pictures/forest_with_tree_2_try_3.svg "hmm")

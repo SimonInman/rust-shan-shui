@@ -2,7 +2,7 @@ use draw::{Drawing, RGB, Style};
 use noise::{NoiseFn, Perlin};
 use rand::Rng;
 
-use crate::blob::{self, default_f};
+use crate::blob::{self, default_f, blob};
 // this.tree01 = function(x, y, args) {
 //     var args = args != undefined ? args : {};
 //     var hei = args.hei != undefined ? args.hei : 50;
@@ -19,13 +19,6 @@ pub fn default_tree_1(x: f64, y: f64) -> Vec<Drawing> {
 }
 
 fn tree_1(x: f64, y: f64, height: f64, width: f64, _noise: f64) -> Vec<Drawing> {
-  
-//     reso = 10;
-//     var nslist = [];
-//     for (var i = 0; i < reso; i++) {
-//       nslist.push([Noise.noise(i * 0.5), Noise.noise(i * 0.5, 0.5)]);
-//     }
-  
 
 let rgb = RGB{r:100,g:100,b:100}.clone();
 let resolution = 10;
@@ -105,9 +98,7 @@ return drawings
 
 fn leaves_for_height(x: f64, y: f64, width: f64, resolution: usize, leaf_index: usize, colour: RGB) -> Vec<Drawing> {
     let mut leaves = vec![];
-    println!("adding leaves for height {}", y);
     for _ in  0..(resolution - leaf_index) / 5 + 1 {
-        println!("adding 1 leaves for height {}", y);
         leaves.push(leaf(x, y, width, resolution, leaf_index, colour));
     }
     return leaves;
@@ -128,7 +119,7 @@ fn leaf(x: f64, y: f64, width: f64, resolution: usize, leaf_index: usize, colour
     let ret = true;
     let noise = 0.5;
 
-    let leaf_blob = blob::blob(leaf_x, leaf_y, length, width, 0.0, noise, ret, &default_f);
+    let leaf_blob = blob::blob(leaf_x, leaf_y, length, width, angle, noise, ret, &default_f);
 
 
     return Drawing::new().with_shape(leaf_blob).with_style(Style::filled(colour));
@@ -144,4 +135,84 @@ fn generate_2d_noise_list(len: usize) -> Vec<(f64, f64)> {
     let out = (0..len).into_iter().map(noise_for_index).collect();
 
     return out;
+}
+
+pub fn default_tree_2(x: f64, y: f64) -> Vec<Drawing> {
+    let rgb = RGB{r:100,g:100,b:100}.clone();
+    return  tree_2(x, y, 
+        16.0,
+        8.0, 
+        5,
+        0.5, 
+        rgb);
+}
+
+fn tree_2(x: f64, y: f64, height: f64, width: f64, clu: usize, _noise: f64, colour: RGB) -> Vec<Drawing> {
+    let mut rng = rand::thread_rng();
+    let pi = std::f64::consts::PI;
+
+    let mut out = vec![];
+    let stochastic_width =  width * (rng.gen::<f64>() * 0.75 +  0.5);
+    let stochastic_length=  height * (rng.gen::<f64>() * 0.75 + 0.5);
+
+    for i in 0..clu {
+        let leaf_blob = blob(
+            x + random_gaussian() * clu as f64 * 4.0, 
+            y + random_gaussian() * clu as f64 * 4.0, 
+            stochastic_length, 
+            stochastic_width, 
+            pi / 2.0, 
+            0.0, 
+            true, 
+            &tree_2_blob_f);
+            out.push(
+                Drawing::new().with_shape(leaf_blob).with_style(Style::filled(colour))
+            );
+    }
+    return out;
+}
+
+// Transliterate:
+// function wtrand(func) {
+//     var x = Math.random();
+//     var y = Math.random();
+//     if (y < func(x)) {
+//       return x;
+//     } else {
+//       return wtrand(func);
+//     }
+//   }
+
+//   function randGaussian() {
+//     return (
+//       wtrand(function(x) {
+//         return Math.pow(Math.E, -24 * Math.pow(x - 0.5, 2));
+//       }) *
+//         2 -
+//       1
+//     );
+//   }
+fn random_gaussian() -> f64 {
+    let mut rng = rand::thread_rng();
+
+    loop {
+        let x:f64 = rng.gen::<f64>();
+        let y:f64 = rng.gen();
+        let weird_number: f64 =  -24.0 * (x - 0.5).powi(2);
+        let guassian: f64 = weird_number.exp();
+        if y < guassian {
+            return x;
+        }
+    }
+}
+
+pub fn tree_2_blob_f(x: f64) -> f64 {
+    let pi = std::f64::consts::PI;
+
+    let a_sin_a = |a: f64| -> f64 {a  *  (a * pi).sin() };
+    if x <= 1.0 {
+        return (a_sin_a(x)).sqrt();
+    } else {
+        return -1.0 * (a_sin_a(x - 2.0)).sqrt();
+    }
 }

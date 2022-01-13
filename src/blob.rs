@@ -74,7 +74,11 @@ pub fn default_f(x: f64) -> f64 {
 //     var noi = args.noi != undefined ? args.noi : 0.5;
 //     var ret = args.ret != undefined ? args.ret : 0;
 pub fn default_blob(x: f64, y: f64) -> Shape {
-    return blob(x, y, 40.0, 10.0, 0.0, 0.5, true, &default_f);
+    return blob(x, y, 40.0, 10.0, 
+       0.0,  
+        0.5, 
+        true, 
+        &default_f);
 }
 
 pub fn blob(
@@ -88,9 +92,9 @@ pub fn blob(
     ret: bool,
     f: &dyn Fn(f64) -> f64,
 ) -> Shape {
-    if ang != 0.0 {
-        todo!();
-    }
+    // if ang != 0.0 {
+    //     todo!();
+    // }
 
     let resolution = 20;
 
@@ -104,19 +108,19 @@ pub fn blob(
     for i in 0..(lengths_and_angles.len()) {
         // let this_noise = noise_list[i] * noise + (1.0 - noise);
         let this_noise = looped_noise[i] * noise + (1.0 - noise);
-        // let this_angle = lengths_and_angles[i].1 + ang;
-        // let nx = x + this_angle.cos() * lengths_and_angles[i].0 * this_noise;
-        // let ny = y + this_angle.cos() * lengths_and_angles[i].0 * this_noise;
+        let this_angle = lengths_and_angles[i].1 + ang;
+        let nx = x + this_angle.cos() * lengths_and_angles[i].0 * this_noise;
+        let ny = y + this_angle.sin() * lengths_and_angles[i].0 * this_noise;
 
-        // points_list.push((nx, ny));
-
-        let fraction: f64 = (i as f64) / resolution as f64;
-        let p = fraction * 2.0;
-        let xo = length / 2.0 - ((p - 1.0).abs() * length);
-        let yo = (f(p) * width) / 2.0;
-        let nx = x + xo * this_noise;
-        let ny = y + yo * this_noise;
         points_list.push((nx, ny));
+
+        // let fraction: f64 = (i as f64) / resolution as f64;
+        // let p = fraction * 2.0;
+        // let xo = length / 2.0 - ((p - 1.0).abs() * length);
+        // let yo = (f(p) * width) / 2.0;
+        // let nx = x + xo * this_noise;
+        // let ny = y + yo * this_noise;
+        // points_list.push((nx, ny));
     }
 
     if ret {
