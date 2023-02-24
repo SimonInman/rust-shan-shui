@@ -74,11 +74,7 @@ pub fn default_f(x: f64) -> f64 {
 //     var noi = args.noi != undefined ? args.noi : 0.5;
 //     var ret = args.ret != undefined ? args.ret : 0;
 pub fn default_blob(x: f64, y: f64) -> Shape {
-    return blob(x, y, 40.0, 10.0, 
-       0.0,  
-        0.5, 
-        true, 
-        &default_f);
+    return blob(x, y, 40.0, 10.0, 0.0, 0.5, true, &default_f);
 }
 
 pub fn blob(
@@ -149,38 +145,39 @@ pub fn blob(
 //   }
 
 fn loop_noise(noise_list: Vec<f64>) -> Vec<f64> {
-    // this is the diff once we loop our shape back around - we would like it to be small to 
+    // this is the diff once we loop our shape back around - we would like it to be small to
     // get smooth shapes
     let dif = noise_list.last().unwrap() - noise_list.first().unwrap();
 
-//       nslist[i] += (dif * (nslist.length - 1 - i)) / (nslist.length - 1);
+    //       nslist[i] += (dif * (nslist.length - 1 - i)) / (nslist.length - 1);
     let length_minus_one: f64 = (noise_list.len() - 1) as f64;
 
     // this just linear interpolates from dif -> 0 as you go through.
-    let delta_list: Vec<f64> = (0..noise_list.len()).into_iter().map(
-        |i| ( dif * (length_minus_one - i as f64)) / length_minus_one
-     ) .collect();
+    let delta_list: Vec<f64> = (0..noise_list.len())
+        .into_iter()
+        .map(|i| (dif * (length_minus_one - i as f64)) / length_minus_one)
+        .collect();
 
-     // This is essentially turning the noise into a "flatish" walk, with diff reduced to zero. 
-     let new_noise_list: Vec<f64> = noise_list.into_iter().zip(delta_list)
-     .map(|(a, b)| a+b).collect();
+    // This is essentially turning the noise into a "flatish" walk, with diff reduced to zero.
+    let new_noise_list: Vec<f64> = noise_list
+        .into_iter()
+        .zip(delta_list)
+        .map(|(a, b)| a + b)
+        .collect();
 
+    let upper_bound = new_noise_list.iter().fold(-100.0 as f64, |a, &b| a.max(b));
+    let lower_bound = new_noise_list.iter().fold(100.0 as f64, |a, &b| a.min(b));
 
-     let upper_bound = new_noise_list.iter()
-.fold(-100.0 as f64, |a, &b| a.max(b));
-     let lower_bound = new_noise_list.iter().fold(100.0 as f64, |a, &b| a.min(b));
+    let noise_range = upper_bound - lower_bound;
 
-     let noise_range = upper_bound - lower_bound;
+    let out = new_noise_list
+        .into_iter()
+        .map(|noise| (noise - lower_bound) / noise_range)
+        .collect();
 
-     let out = new_noise_list.into_iter()
-     .map(|noise| (noise - lower_bound)/noise_range).collect();
-
-     return out;
-//       ((value - istart) * 1.0) / (istop - istart)
-
-
+    return out;
+    //       ((value - istart) * 1.0) / (istop - istart)
 }
-
 
 fn naive_noise_list(len: usize) -> Vec<f64> {
     let mut rng = rand::thread_rng();
@@ -199,8 +196,6 @@ fn generate_noise_list(len: usize) -> Vec<f64> {
 
     return out;
 }
-
-
 
 // Should do the following:
 //

@@ -940,10 +940,187 @@ but should have
 That's an increase of 40 times in the placement of the blobs, so I expect that to make a large difference.
 
 
-![Hmm](../pictures/forest_with_tree_2_try_2.svg "hmm")
+![Hmm](../pictures/yyforest_with_tree_2_try_2.svg "hmm")
 
 Hmm that's not right either. Now the points are too far apart, I think.
 
 Well, turns out that I just typed the above "* clu * 4" line while I was writing it, and wrote 10 instead. Doh! when I correct it, I get something that looks pretty ok!
 
 ![Hmm](../pictures/forest_with_tree_2_try_3.svg "hmm")
+
+DAY ??? (After a few days break.)
+
+I think I'm going to implement one more tree, then move onto something grander (the mountains are calling to me).
+
+I'll do the next one, tree03
+https://github.com/zverok/grok-shan-shui/blob/main/original.html#L842
+
+This looks similar to tree01 at a high level - two lines and blobs for leaves, with it being built in vertical slices. I'll start with a tree_3_leaf function to impliment this code from the innermost loop:
+
+```javascript
+
+   var shape = function(x) {
+     return Math.log(50 * x + 1) / 3.95;
+   };
+   var ox = Math.random() * wid * 2 * shape((reso - i) / reso);
+   blobs += blob(
+     nx + ox * randChoice([-1, 1]),
+     ny + (Math.random() - 0.5) * wid * 2,
+     {
+       len: ox * 2,
+       wid: Math.random() * 6 + 3,
+       ang: ((Math.random() - 0.5) * Math.PI) / 6,
+       col:
+         "rgba(" +
+         leafcol[0] +
+         "," +
+         leafcol[1] +
+         "," +
+         leafcol[2] +
+         "," +
+         (Math.random() * 0.2 + parseFloat(leafcol[3])).toFixed(3) +
+         ")",
+     },
+```
+
+[TODO fill in details or at least rust code]
+
+![Hmm](../pictures/forest_with_tree_1_try_1.svg "hmm")
+
+What's happened there? Well, all the leaves are off to one side, so either I missed out the the other side, or there's something wrong with the width or randomness?
+
+Yes, I had the following code to place the leaves:
+
+```rust
+    let rand_x = x + ox + vec![-1.0, 1.0].choose(&mut rng).unwrap();
+```
+
+but this should be a multiplication rather than addition of the random -1.0 or 1.0 term.
+
+
+![Hmm](../pictures/forest_with_tree_1_try_2.svg "hmm")
+
+DAY N+1 and N+2
+
+I think the simplest mountain to start with will probably be the background one as it's just a black shape without details. I'm guessing this is distmount
+https://github.com/zverok/grok-shan-shui/blob/main/original.html#L2369
+
+First I look to see if I can break it up into chunks. Much like one of our early blob functions, the first part seems to make a list of points and be amenable to pulling out into a separate function
+
+```javascript
+  var ptlist = [];
+
+      for (var i = 0; i < len / span / seg; i++) {
+        ptlist.push([]);
+        for (var j = 0; j < seg + 1; j++) {
+          var tran = function(k) {
+            return [
+              xoff + k * span,
+              yoff -
+                hei *
+                  Noise.noise(k * 0.05, seed) *
+                  Math.pow(Math.sin((Math.PI * k) / (len / span)), 0.5),
+            ];
+          };
+          ptlist[ptlist.length - 1].push(tran(i * seg + j));
+        }
+        for (var j = 0; j < seg / 2 + 1; j++) {
+          var tran = function(k) {
+            return [
+              xoff + k * span,
+              yoff +
+                24 *
+                  Noise.noise(k * 0.05, 2, seed) *
+                  Math.pow(Math.sin((Math.PI * k) / (len / span)), 1),
+            ];
+          };
+          ptlist[ptlist.length - 1].unshift(tran(i * seg + j * 2));
+        }
+      }
+```
+
+Here we have an outer loop with two loops inside it. Each outer loop builds an array of points, so the output is an array of arrays. I am guessing that this code will build all the distant mountains, and each array will correspond to one mountain. 
+
+There are going to be `len/span/seg` members in the outer list, so if that's right, then that's how many mountains we will end up with. I'm not sure how this expression is evaluated. Is it `(len/span)/seg` or `len/(span/seg)`?
+
+The code is relatively complicated, and I'm not sure I fully understand it. Each loop defines an inline function, then calls that function once. This seems like it hurts readability to me - instead the argument it is called with could have been given a descriptive name inside the loop. 
+
+I think it first makes sense to understand the X co-ordinates being defined, as they are simpler.  
+
+```javascript
+      for (var i = 0; i < len / span / seg; i++) {
+        ptlist.push([]);
+        for (var j = 0; j < seg + 1; j++) {
+          var tran = function(k) {
+            return [
+              xoff + k * span,
+              <y co-ordinate>
+              
+            ];
+          };
+          ptlist[ptlist.length - 1].push(tran(i * seg + j));
+        }
+```
+
+```javascript
+      for (var i = 0; i < len / span / seg; i++) {
+        ptlist.push([]);
+        for (var j = 0; j < seg + 1; j++) {
+          var our_new_variable = i * seg + j
+          var out =  [
+              xoff + our_new_variable * span,
+              <y co-ordinate>
+            ];
+          };
+          ptlist[ptlist.length - 1].push(out);
+        }
+```
+To look at what's happening here, I think about what happens as you increase i and j. 
+
+j goes from 0 to `seg` so for any given i `our_new_variable`, our new variable goes from `i * seg` to `i * seg + seg` which is `(i + 1) * seg`. So if we think about each mountain being composed of `seg` distinct points, then this makes sense to me - you draw `seg` sections for the first mountain, so mountain 2 starts at the `1 * seg`th point, and so on. [Note: the loop for j actually goes up to seg + 1. I guess this is because `j+1` points are required to draw `j` segments.]
+
+Now I can see that our x co-ordinate `xoff + our_new_variable * span` increases by `span` for each iteration of the j loop, so now I can see that span is defining the (horizontal) length of each individual straight line in the drawings (rather than the span of each mountain or something).
+
+The y co-ordinate is a bit more complicated. Firstly we note that we are doing `y - ...`. If you recall that SVGs have y = 0 at the top, and larger y are lower on the screen. This means that as the term after the `-` increases, the value of (`y` minus that term) decreases, which means we move up the screen.
+
+The y term consists of (switching to my rust translation):
+
+```rust 
+  y - height *  //<- variable to scale the following to your liking
+      perlin.get([global_point_index * 0.05, seed]) * //<- random noise term
+      (pi * global_point_index * span / length ).sin().sqrt() //<- complicated trigonometry bit
+      ];
+```
+
+The complicated bit isn't that scary, I promise. The key to seeing what's going on is that, by definition, `global_point_index * span / length` will run from zero at the very left of the picture, to 1 at the very right. So this code `(pi * global_point_index * span / length )` runs from zero to pi. 
+
+You can see on this website what the function sqrt(sin(x)) looks like as x runs from zero to pi: https://www.mathway.com/popular-problems/Trigonometry/373774 It looks... a bit like a mountain (if you squint). That makes me think that this loop we've just looked at will be the top of the mountain - we've got the points for a single line that runs in the shape of a mountain. I expect the next loop will now draw the bottom of the mountain.
+
+[Aside: I notice I'm a little confused, as what I've written above makes me think that the entire outer loop is drawing one mountain, whereas I originally thought that each inner loop would draw a mountain.Hmmmm... ]
+
+I had to look up what `unshift` did - it pushes the value to the start of the list. 
+ I decided it would be easier in rust to build a separate list for the second loop, then reverse it and concatenate the first loop's list on the end.
+
+<fill in the rust code here that generates the points and colours them>
+
+So without the last part I render a test and get:
+
+![Hmm](../pictures/distant_mountains_debug_3.svg "that's something...")
+
+Now we come to the last part, which I'm intrigued by
+```javascript
+   var T = PolyTools.triangulate(ptlist[i], {
+          area: 100,
+          convex: true,
+          optimize: false,
+        });
+        for (var k = 0; k < T.length; k++) {
+          var m = PolyTools.midPt(T[k]);
+          var co = getCol(m[0], m[1]);
+          canv += poly(T[k], { fil: co, str: co, wid: 1 });
+        }
+      }
+```
+
+I looked at the triangulation code and it looks pretty hardcore :| A problem for another day!
+
